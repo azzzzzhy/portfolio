@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>作品集</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #2c2c2c; overflow-x: hidden; }
+  #pdf-canvas { display: block; margin: 0 auto; }
+  .toolbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.8); color: #fff;
+    display: flex; justify-content: center; align-items: center;
+    gap: 16px; padding: 10px; font-family: -apple-system, sans-serif;
+    font-size: 14px; z-index: 10; -webkit-user-select: none; user-select: none;
+  }
+  .toolbar button {
+    background: #fff; color: #000; border: none;
+    border-radius: 6px; padding: 10px 20px; font-size: 15px; cursor: pointer;
+  }
+  .toolbar button:disabled { opacity: 0.3; }
+  .toolbar span { min-width: 80px; text-align: center; }
+  .loading {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: #ccc; font-family: -apple-system, sans-serif; font-size: 18px; z-index: 5;
+  }
+</style>
+</head>
+<body>
+<div class="loading" id="loading">加载中...</div>
+<canvas id="pdf-canvas"></canvas>
+<div class="toolbar">
+  <button id="prev">◀ 上一页</button>
+  <span id="page-info"></span>
+  <button id="next">下一页 ▶</button>
+</div>
+
+<script type="module">
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+
+const url = '%E4%BD%9C%E5%93%81%E9%9B%86.pdf';
+let pdfDoc = null, pageNum = 1, totalPages = 0;
+const canvas = document.getElementById('pdf-canvas');
+const ctx = canvas.getContext('2d');
+
+async function renderPage(num) {
+  document.getElementById('loading').style.display = 'block';
+  const page = await pdfDoc.getPage(num);
+  const vp = page.getViewport({ scale: 1 });
+  const scale = Math.min((window.innerWidth - 16) / vp.width, 1.3);
+  const viewport = page.getViewport({ scale });
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('page-info').textContent = `${num} / ${totalPages}`;
+  document.getElementById('prev').disabled = num <= 1;
+  document.getElementById('next').disabled = num >= totalPages;
+  window.scrollTo(0, 0);
+}
+
+try {
+  const pdf = await pdfjsLib.getDocument(url).promise;
+  pdfDoc = pdf;
+  totalPages = pdf.numPages;
+  renderPage(1);
+} catch(e) {
+  document.getElementById('loading').textContent = '加载失败，请刷新重试';
+  console.error(e);
+}
+
+document.getElementById('prev').onclick = () => { if (pageNum > 1) renderPage(--pageNum); };
+document.getElementById('next').onclick = () => { if (pageNum < totalPages) renderPage(++pageNum); };
+</script>
+</body>
+</html>
